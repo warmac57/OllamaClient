@@ -1,7 +1,9 @@
 Imports System.Net.Http
+Imports System.Runtime.Remoting.Contexts
 Imports System.Text
-Imports Newtonsoft.Json
 Imports System.Threading.Tasks
+Imports Newtonsoft.Json
+Imports Newtonsoft.Json.Linq
 
 Public Class OllamaClient
     Private ReadOnly _baseUrl As String
@@ -131,10 +133,387 @@ End Class
 Public Class OllamaModel
     <JsonProperty("name")>
     Public Property Name As String
-    
+
     <JsonProperty("modified_at")>
     Public Property ModifiedAt As String
-    
+
     <JsonProperty("size")>
     Public Property Size As Long
 End Class
+
+
+' END OF FIRST CLASS FILE
+' 
+
+
+'## Key Changes for VB.NET Implementation:
+
+'### 1. **Conversation State Management Class**
+
+'```vb.net
+'Public Class OllamaClient
+'    Private conversationHistory As New List(Of
+'ConversationItem)
+'    Private context As New List(Of Message)
+
+'    Public Class ConversationItem
+'        Public Property Role As String
+'        Public Property Content As String
+'        Public Property Timestamp As DateTime
+'    End Class
+
+'    Public Class Message
+'        Public Property Role As String
+'        Public Property Content As String
+'    End Class
+
+'    Public Async Function AskQuestionAsync(question As
+'String) As Task(Of String)
+'        ' Add current question to history
+'        conversationHistory.Add(New ConversationItem With
+'{
+'            .Role = "user",
+'            .Content = question,
+'            .Timestamp = DateTime.Now
+'        })
+
+'        ' Prepare context for next request
+'        Dim context As List(Of Message) = BuildContext()
+
+'        ' Make API call with context
+'        Dim response As String = Await
+'CallOllamaAsync(question, context)
+
+'        ' Add response to history
+'        conversationHistory.Add(New ConversationItem With
+'{
+'            .Role = "assistant",
+'            .Content = response,
+'            .Timestamp = DateTime.Now
+'        })
+
+'        Return response
+'    End Function
+
+'    Private Function BuildContext() As List(Of Message)
+'        ' Limit context to recent exchanges (last 5
+'exchanges)
+'        Dim recentHistory =
+'conversationHistory.Skip(Math.Max(0,
+'conversationHistory.Count - 5)).ToList()
+'        Dim contextList As New List(Of Message)
+
+'        For Each item In recentHistory
+'            contextList.Add(New Message With {
+'                .Role = item.Role,
+'                .Content = item.Content
+'            })
+'        Next
+
+'        Return contextList
+'    End Function
+
+'    Private Async Function CallOllamaAsync(question As
+'String, context As List(Of Message)) As Task(Of String)
+'        Dim client As New HttpClient()
+'        Dim url As String =
+'"http://localhost:11434/api/generate"
+
+'        Dim requestBody As New Dictionary(Of String,
+'Object) With {
+'            {"model", "llama3"},
+'            {"prompt", question},
+'            {"context", context},
+'            {"stream", False}
+'        }
+
+'        Dim jsonBody As String =
+'JsonConvert.SerializeObject(requestBody)
+'        Dim content As New StringContent(jsonBody,
+'Encoding.UTF8, "application/json")
+
+'        Dim response As HttpResponseMessage = Await
+'client.PostAsync(url, content)
+'        Dim responseString As String = Await
+'response.Content.ReadAsStringAsync()
+
+'        Dim responseObject As JObject =
+'JObject.Parse(responseString)
+'        Return responseObject("response").ToString()
+'    End Function
+
+'    Public Sub ClearConversation()
+'        conversationHistory.Clear()
+'    End Sub
+
+'    Public Function GetConversation() As List(Of
+'ConversationItem)
+'        Return conversationHistory.ToList()
+'    End Function
+'End Class
+'```
+
+'### 2. **Enhanced Client with Conversation Features**
+
+'```vb.net
+'Public Class EnhancedOllamaClient
+'    Private model As String
+'    Private conversationHistory As New List(Of
+'ConversationItem)
+'    Private contextWindow As Integer = 10
+
+'    Public Class ConversationItem
+'        Public Property Role As String
+'        Public Property Content As String
+'        Public Property Timestamp As DateTime
+'    End Class
+
+'    Public Class Message
+'        Public Property Role As String
+'        Public Property Content As String
+'    End Class
+
+'    Public Sub New(modelName As String)
+'        model = modelName
+'        conversationHistory = New List(Of
+'ConversationItem)
+'    End Sub
+
+'    Public Async Function AskAsync(question As String) As
+'Task(Of String)
+'        ' Add question to conversation
+'        conversationHistory.Add(New ConversationItem With
+'{
+'            .Role = "user",
+'            .Content = question,
+'            .Timestamp = DateTime.Now
+'        })
+
+'        ' Build context from conversation history
+'        Dim context As List(Of Message) =
+'BuildConversationContext()
+
+'        Try
+'            Dim response As String = Await
+'SendToOllamaAsync(question, context)
+
+'            ' Add response to conversation
+'            conversationHistory.Add(New ConversationItem
+'With {
+'                .Role = "assistant",
+'                .Content = response,
+'                .Timestamp = DateTime.Now
+'            })
+
+'            Return response
+'        Catch ex As Exception
+'            Console.WriteLine($"Error: {ex.Message}")
+'            Throw
+'        End Try
+'    End Function
+
+'    Private Function BuildConversationContext() As
+'List(Of Message)
+'        ' Take last N exchanges (user + assistant)
+'        Dim recentCount As Integer =
+'Math.Min(contextWindow * 2, conversationHistory.Count)
+'        Dim recent =
+'conversationHistory.Skip(conversationHistory.Count -
+'recentCount).ToList()
+'        Dim contextList As New List(Of Message)
+
+'        For Each item In recent
+'            contextList.Add(New Message With {
+'                .Role = item.Role,
+'                .Content = item.Content
+'            })
+'        Next
+
+'        Return contextList
+'    End Function
+
+'    Private Async Function SendToOllamaAsync(question As
+'String, context As List(Of Message)) As Task(Of String)
+'        Dim client As New HttpClient()
+'        Dim url As String =
+'"http://localhost:11434/api/generate"
+
+'        Dim requestBody As New Dictionary(Of String,
+'Object) With {
+'            {"model", model},
+'            {"prompt", question},
+'            {"context", context},
+'            {"stream", False}
+'        }
+
+'        Dim jsonBody As String =
+'JsonConvert.SerializeObject(requestBody)
+'        Dim content As New StringContent(jsonBody,
+'Encoding.UTF8, "application/json")
+
+'        Dim response As HttpResponseMessage = Await
+'client.PostAsync(url, content)
+'        Dim responseString As String = Await
+'response.Content.ReadAsStringAsync()
+
+'        Dim responseObject As JObject =
+'JObject.Parse(responseString)
+'        Return responseObject("response").ToString()
+'    End Function
+
+'    Public Sub ClearConversation()
+'        conversationHistory.Clear()
+'    End Sub
+
+'    Public Function GetConversation() As List(Of
+'ConversationItem)
+'        Return conversationHistory.ToList()
+'    End Function
+
+'    Public Property MaxContextLength As Integer
+'        Get
+'            Return contextWindow
+'        End Get
+'        Set(value As Integer)
+'            contextWindow = value
+'        End Set
+'    End Property
+'End Class
+'```
+
+'### 3. **Usage Example**
+
+'```vb.net
+'' Initialize client
+'Dim client As New EnhancedOllamaClient("llama3")
+
+'' First question
+'Dim response1 As String = Await client.AskAsync("What is
+'machine learning?")
+'Console.WriteLine(response1)
+
+'' Second question - will maintain context
+'Dim response2 As String = Await client.AskAsync("Can you
+'explain it more simply?")
+'Console.WriteLine(response2)
+
+'' Third question
+'Dim response3 As String = Await client.AskAsync("What are
+'some applications of it?")
+'Console.WriteLine(response3)
+
+'' Clear conversation if needed
+'' client.ClearConversation()
+'```
+
+'### 4. **Additional Helper Methods**
+
+'```vb.net
+'Public Class EnhancedOllamaClient
+'    ' ... previous code ...
+
+'    ' Get conversation history as formatted string
+'    Public Function GetFormattedConversation() As String
+'        Dim sb As New StringBuilder()
+'        For Each item In conversationHistory
+'            sb.AppendLine($"{item.Role}: {item.Content}")
+'        Next
+'        Return sb.ToString()
+'    End Function
+
+'    ' Save conversation to file (optional)
+'    Public Async Sub SaveConversationToFile(filePath As
+'String)
+'        Try
+'            Dim json As String =
+'JsonConvert.SerializeObject(conversationHistory)
+'            Await File.WriteAllTextAsync(filePath, json)
+'        Catch ex As Exception
+'            Console.WriteLine($"Failed to save
+'conversation: {ex.Message}")
+'        End Try
+'    End Sub
+
+'    ' Load conversation from file (optional)
+'    Public Async Sub LoadConversationFromFile(filePath As
+'String)
+'        Try
+'            If File.Exists(filePath) Then
+'                Dim json As String = Await
+'File.ReadAllTextAsync(filePath)
+'                conversationHistory =
+'JsonConvert.DeserializeObject(Of List(Of
+'ConversationItem))(json)
+'            End If
+'        Catch ex As Exception
+'            Console.WriteLine($"Failed to load
+'conversation: {ex.Message}")
+'        End Try
+'    End Sub
+
+'    ' Get conversation statistics
+'    Public Function GetConversationStats() As String
+'        Dim userCount As Integer =
+'conversationHistory.Count(Function(x) x.Role = "user")
+'        Dim assistantCount As Integer =
+'conversationHistory.Count(Function(x) x.Role =
+'"assistant")
+'        Return $"Total exchanges:
+'{conversationHistory.Count}, User: {userCount},
+'Assistant: {assistantCount}"
+'    End Function
+'End Class
+'```
+
+'### 5. **Error Handling with Context Management**
+
+'```vb.net
+'Public Async Function AskWithRetryAsync(question As
+'String) As Task(Of String)
+'    Try
+'        Return Await AskAsync(question)
+'    Catch ex As Exception
+'        If ex.Message.Contains("context too long") Then
+'            ' Trim conversation history
+'            TrimContext()
+'            ' Retry the question
+'            Return Await AskAsync(question)
+'        End If
+'        Throw
+'    End Try
+'End Function
+
+'Private Sub TrimContext()
+'    If conversationHistory.Count > 20 Then ' Keep last 20
+'items
+'        conversationHistory =
+'conversationHistory.Skip(conversationHistory.Count -
+'20).ToList()
+'    End If
+'End Sub
+'```
+
+'## Key Points for VB.NET Implementation:
+
+'1. **Use `Async Function`** for asynchronous operations
+'2. **HttpClient** for making API calls to Ollama
+'3. **JsonConvert** from Newtonsoft.Json for JSON
+'serialization
+'4. **List(Of T)** for maintaining conversation history
+'5. **Context parameter** in Ollama API calls to maintain
+'conversation
+'6. **Error handling** with try-catch blocks
+'7. **Clear conversation** method to reset context
+
+'## Required NuGet Packages:
+'- Newtonsoft.Json (for JSON serialization)
+'- System.Net.Http (for HttpClient)
+
+'The implementation maintains conversation context by:
+'- Storing all user and assistant messages
+'- Building context from recent exchanges
+'- Passing context in Ollama API calls
+'- Limiting conversation length to prevent overflow
+'- Providing methods to clear or retrieve conversation
+'history
+
